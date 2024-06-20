@@ -133,7 +133,13 @@ def get_asset(asset_id):
     }
     response = requests.get('https://thumbnails.roblox.com/v1/assets', params=params, proxies=get_random_proxy()).json()
     image_url = response["data"][0]["imageUrl"]
-    return redirect(image_url)
+    image_response = requests.get(image_url, proxies=get_random_proxy())
+
+    if image_response.status_code != 200:
+        return {"error": "Failed to retrieve image from Roblox CDN"}, image_response.status_code
+
+    image_bytes = BytesIO(image_response.content)
+    return send_file(image_bytes, mimetype='image/png', as_attachment=False, download_name=f"{asset_id}.png")
 
 @app.route('/users/<int:user_id>', methods=['GET'])
 @cache.cached(timeout=3600, key_prefix=lambda: f"user_avatar_{request.view_args['user_id']}")
