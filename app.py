@@ -118,28 +118,25 @@ def get_random_proxy():
     proxy = random.choice(proxy_list)
     ip, port, user, password = proxy.split(':')
     proxy_auth = f"http://{user}:{password}@{ip}:{port}"
-    print(proxy_auth)
     return {
         "http": proxy_auth,
         "https": proxy_auth
     }
 
 @app.route('/asset/<int:asset_id>')
-@cache.cached(timeout=3600, key_prefix='asset_')  # Cache this route for 1 hour
+@cache.cached(timeout=3600, key_prefix=lambda: f"asset_{request.view_args['asset_id']}")
 def get_asset(asset_id):
     params = {
-        'assetIds': asset_id,  # Use the provided asset_id
+        'assetIds': asset_id,
         'size': '420x420',
         'format': 'Png'
     }
     response = requests.get('https://thumbnails.roblox.com/v1/assets', params=params, proxies=get_random_proxy()).json()
-    print(response)
     image_url = response["data"][0]["imageUrl"]
-
-    return redirect(image_url)  # Redirect to the obtained image URL
+    return redirect(image_url)
 
 @app.route('/users/<int:user_id>', methods=['GET'])
-@cache.cached(timeout=3600, key_prefix='user_avatar_')  # Cache this route for 1 hour
+@cache.cached(timeout=3600, key_prefix=lambda: f"user_avatar_{request.view_args['user_id']}")
 def get_avatar_bust(user_id):
     if not user_id:
         return {"error": "userId parameter is required"}, 400
@@ -164,7 +161,7 @@ def get_avatar_bust(user_id):
     return send_file(image_bytes, mimetype='image/png', as_attachment=False, download_name=f"{user_id}.png")
 
 @app.route('/groups/<int:group_id>', methods=['GET'])
-@cache.cached(timeout=3600, key_prefix='group_pic_')  # Cache this route for 1 hour
+@cache.cached(timeout=3600, key_prefix=lambda: f"group_pic_{request.view_args['group_id']}")
 def get_group_pic(group_id):
     if not group_id:
         return {"error": "group id parameter is required"}, 400
@@ -190,3 +187,4 @@ def get_group_pic(group_id):
 
 if __name__ == '__main__':
     app.run(debug=True)
+
