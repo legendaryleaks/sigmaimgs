@@ -2,8 +2,12 @@ from flask import Flask, redirect, send_file, request
 import requests
 from io import BytesIO
 import random
+from flask_caching import Cache
 
 app = Flask(__name__)
+
+# Configure Flask-Caching
+cache = Cache(app, config={'CACHE_TYPE': 'simple'})
 
 # Define the proxy list
 proxy_list = [
@@ -110,7 +114,6 @@ proxy_list = [
     "198.105.100.13:6264:secureUsername:securePassword"
 ]
 
-
 def get_random_proxy():
     proxy = random.choice(proxy_list)
     ip, port, user, password = proxy.split(':')
@@ -121,8 +124,8 @@ def get_random_proxy():
         "https": proxy_auth
     }
 
-
 @app.route('/asset/<int:asset_id>')
+@cache.cached(timeout=3600, key_prefix='asset_')  # Cache this route for 1 hour
 def get_asset(asset_id):
     params = {
         'assetIds': asset_id,  # Use the provided asset_id
@@ -136,6 +139,7 @@ def get_asset(asset_id):
     return redirect(image_url)  # Redirect to the obtained image URL
 
 @app.route('/users/<int:user_id>', methods=['GET'])
+@cache.cached(timeout=3600, key_prefix='user_avatar_')  # Cache this route for 1 hour
 def get_avatar_bust(user_id):
     if not user_id:
         return {"error": "userId parameter is required"}, 400
@@ -160,6 +164,7 @@ def get_avatar_bust(user_id):
     return send_file(image_bytes, mimetype='image/png', as_attachment=False, download_name=f"{user_id}.png")
 
 @app.route('/groups/<int:group_id>', methods=['GET'])
+@cache.cached(timeout=3600, key_prefix='group_pic_')  # Cache this route for 1 hour
 def get_group_pic(group_id):
     if not group_id:
         return {"error": "group id parameter is required"}, 400
