@@ -1,15 +1,9 @@
-from flask import Flask, send_file, request
+from flask import Flask, redirect, send_file, request
 import requests
 from io import BytesIO
 import random
-from flask_caching import Cache
-import os
-
 
 app = Flask(__name__)
-
-# Configure Flask-Caching
-cache = Cache(app, config={'CACHE_TYPE': 'simple'})
 
 # Define the proxy list
 proxy_list = [
@@ -116,112 +110,78 @@ proxy_list = [
     "198.105.100.13:6264:secureUsername:securePassword"
 ]
 
-redis_url = "redis://default:4n6yVVMesJeLzkXMmLaNWltNEkSuHEc1@redis-18765.c263.us-east-1-2.ec2.redns.redis-cloud.com:18765"
-if redis_url:
-    cache_config = {
-        'CACHE_TYPE': 'RedisCache',
-        'CACHE_REDIS_URL': redis_url,
-        'CACHE_DEFAULT_TIMEOUT': 3600  # Cache timeout in seconds (1 hour)
-    }
-    cache = Cache(app, config=cache_config)
-
 
 def get_random_proxy():
     proxy = random.choice(proxy_list)
     ip, port, user, password = proxy.split(':')
     proxy_auth = f"http://{user}:{password}@{ip}:{port}"
+    print(proxy_auth)
     return {
         "http": proxy_auth,
         "https": proxy_auth
     }
 
-def cache_image(cache_key, image_url):
-    image_response = requests.get(image_url, proxies=get_random_proxy())
-    if image_response.status_code == 200:
-        image_bytes = image_response.content
-        cache.set(cache_key, image_bytes)
-        print(f"Caching new image for {cache_key}")
-        return image_bytes
-    else:
-        return None
 
 @app.route('/asset/<int:asset_id>')
 def get_asset(asset_id):
-    cache_key = f"asset_{asset_id}"
-    cached_image = cache.get(cache_key)
-    
-    if cached_image is None:
-        print(f"Fetching new image for asset ID {asset_id}")
-        params = {
-            'assetIds': asset_id,
-            'size': '420x420',
-            'format': 'Png'
-        }
-        response = requests.get('https://thumbnails.roblox.com/v1/assets', params=params, proxies=get_random_proxy()).json()
-        image_url = response["data"][0]["imageUrl"]
-        cached_image = cache_image(cache_key, image_url)
-        if cached_image is None:
-            return {"error": "Failed to retrieve image from Roblox CDN"}, 500
-    else:
-        print(f"Serving cached image for asset ID {asset_id}")
+    params = {
+        'assetIds': asset_id,  # Use the provided asset_id
+        'size': '420x420',
+        'format': 'Png'
+    }
+    response = requests.get('https://thumbnails.roblox.com/v1/assets', params=params, proxies=get_random_proxy()).json()
+    print(response)
+    image_url = response["data"][0]["imageUrl"]
 
-    image_bytes = BytesIO(cached_image)
-    return send_file(image_bytes, mimetype='image/png', as_attachment=False, download_name=f"{asset_id}.png")
+    return redirect(image_url)  # Redirect to the obtained image URL
 
 @app.route('/users/<int:user_id>', methods=['GET'])
 def get_avatar_bust(user_id):
-    cache_key = f"user_avatar_{user_id}"
-    cached_image = cache.get(cache_key)
-    
-    if cached_image is None:
-        print(f"Fetching new image for user ID {user_id}")
-        url = f"https://thumbnails.roblox.com/v1/users/avatar-bust?userIds={user_id}&size=420x420&format=Png&isCircular=false"
-        response = requests.get(url, proxies=get_random_proxy())
-        
-        if response.status_code != 200:
-            return {"error": "Failed to retrieve data from Roblox API"}, response.status_code
+    if not user_id:
+        return {"error": "userId parameter is required"}, 400
 
-        data = response.json()
-        if 'data' not in data or not data['data']:
-            return {"error": "Invalid response from Roblox API"}, 500
+    url = f"https://thumbnails.roblox.com/v1/users/avatar-bust?userIds={user_id}&size=420x420&format=Png&isCircular=false"
+    response = requests.get(url, proxies=get_random_proxy())
 
-        image_url = data['data'][0]['imageUrl']
-        cached_image = cache_image(cache_key, image_url)
-        if cached_image is None:
-            return {"error": "Failed to retrieve image from Roblox CDN"}, 500
-    else:
-        print(f"Serving cached image for user ID {user_id}")
+    if response.status_code != 200:
+        return {"error": "Failed to retrieve data from Roblox API"}, response.status_code
 
-    image_bytes = BytesIO(cached_image)
+    data = response.json()
+    if 'data' not in data or not data['data']:
+        return {"error": "Invalid response from Roblox API"}, 500
+
+    image_url = data['data'][0]['imageUrl']
+    image_response = requests.get(image_url, proxies=get_random_proxy())
+
+    if image_response.status_code != 200:
+        return {"error": "Failed to retrieve image from Roblox CDN"}, image_response.status_code
+
+    image_bytes = BytesIO(image_response.content)
     return send_file(image_bytes, mimetype='image/png', as_attachment=False, download_name=f"{user_id}.png")
 
 @app.route('/groups/<int:group_id>', methods=['GET'])
 def get_group_pic(group_id):
-    cache_key = f"group_pic_{group_id}"
-    cached_image = cache.get(cache_key)
-    
-    if cached_image is None:
-        print(f"Fetching new image for group ID {group_id}")
-        url = f"https://thumbnails.roblox.com/v1/groups/icons?groupIds={group_id}&size=420x420&format=Png&isCircular=false"
-        response = requests.get(url, proxies=get_random_proxy())
-        
-        if response.status_code != 200:
-            return {"error": "Failed to retrieve data from Roblox API"}, response.status_code
+    if not group_id:
+        return {"error": "group id parameter is required"}, 400
 
-        data = response.json()
-        if 'data' not in data or not data['data']:
-            return {"error": "Invalid response from Roblox API"}, 500
+    url = f"https://thumbnails.roblox.com/v1/groups/icons?groupIds={group_id}&size=420x420&format=Png&isCircular=false"
+    response = requests.get(url, proxies=get_random_proxy())
 
-        image_url = data['data'][0]['imageUrl']
-        cached_image = cache_image(cache_key, image_url)
-        if cached_image is None:
-            return {"error": "Failed to retrieve image from Roblox CDN"}, 500
-    else:
-        print(f"Serving cached image for group ID {group_id}")
+    if response.status_code != 200:
+        return {"error": "Failed to retrieve data from Roblox API"}, response.status_code
 
-    image_bytes = BytesIO(cached_image)
+    data = response.json()
+    if 'data' not in data or not data['data']:
+        return {"error": "Invalid response from Roblox API"}, 500
+
+    image_url = data['data'][0]['imageUrl']
+    image_response = requests.get(image_url, proxies=get_random_proxy())
+
+    if image_response.status_code != 200:
+        return {"error": "Failed to retrieve image from Roblox CDN"}, image_response.status_code
+
+    image_bytes = BytesIO(image_response.content)
     return send_file(image_bytes, mimetype='image/png', as_attachment=False, download_name=f"{group_id}.png")
 
 if __name__ == '__main__':
     app.run(debug=True)
-
