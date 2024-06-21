@@ -1,8 +1,10 @@
-from flask import Flask, redirect, send_file, request
+from flask import Flask, send_file, request
 import requests
 from io import BytesIO
 import random
 from flask_caching import Cache
+import os
+
 
 app = Flask(__name__)
 
@@ -114,6 +116,16 @@ proxy_list = [
     "198.105.100.13:6264:secureUsername:securePassword"
 ]
 
+redis_url = "redis://default:4n6yVVMesJeLzkXMmLaNWltNEkSuHEc1@redis-18765.c263.us-east-1-2.ec2.redns.redis-cloud.com:18765"
+if redis_url:
+    cache_config = {
+        'CACHE_TYPE': 'RedisCache',
+        'CACHE_REDIS_URL': redis_url,
+        'CACHE_DEFAULT_TIMEOUT': 3600  # Cache timeout in seconds (1 hour)
+    }
+    cache = Cache(app, config=cache_config)
+
+
 def get_random_proxy():
     proxy = random.choice(proxy_list)
     ip, port, user, password = proxy.split(':')
@@ -127,7 +139,7 @@ def cache_image(cache_key, image_url):
     image_response = requests.get(image_url, proxies=get_random_proxy())
     if image_response.status_code == 200:
         image_bytes = image_response.content
-        cache.set(cache_key, image_bytes, timeout=3600)
+        cache.set(cache_key, image_bytes)
         print(f"Caching new image for {cache_key}")
         return image_bytes
     else:
@@ -212,3 +224,4 @@ def get_group_pic(group_id):
 
 if __name__ == '__main__':
     app.run(debug=True)
+
