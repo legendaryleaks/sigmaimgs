@@ -129,7 +129,7 @@ def get_asset(asset_id):
         'size': '420x420',
         'format': 'Png'
     }
-    response = requests.get('https://thumbnails.roproxy.com/v1/assets', params=params, proxies=get_random_proxy()).json()
+    response = requests.get('https://thumbnails.roblox.com/v1/assets', params=params, proxies=get_random_proxy()).json()
     print(response)
     image_url = response["data"][0]["imageUrl"]
 
