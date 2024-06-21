@@ -129,7 +129,7 @@ def get_asset(asset_id):
         'size': '420x420',
         'format': 'Png'
     }
-    response = requests.get('https://thumbnails.roblox.com/v1/assets', params=params, proxies=get_random_proxy()).json()
+    response = requests.get('https://thumbnails.roproxy.com/v1/assets', params=params, proxies=get_random_proxy()).json()
     print(response)
     image_url = response["data"][0]["imageUrl"]
 
@@ -140,7 +140,7 @@ def get_avatar_bust(user_id):
     if not user_id:
         return {"error": "userId parameter is required"}, 400
 
-    url = f"https://thumbnails.roblox.com/v1/users/avatar-bust?userIds={user_id}&size=420x420&format=Png&isCircular=false"
+    url = f"https://thumbnails.roproxy.com/v1/users/avatar-bust?userIds={user_id}&size=420x420&format=Png&isCircular=false"
     response = requests.get(url, proxies=get_random_proxy())
 
     if response.status_code != 200:
@@ -164,7 +164,7 @@ def get_group_pic(group_id):
     if not group_id:
         return {"error": "group id parameter is required"}, 400
 
-    url = f"https://thumbnails.roblox.com/v1/groups/icons?groupIds={group_id}&size=420x420&format=Png&isCircular=false"
+    url = f"https://thumbnails.roproxy.com/v1/groups/icons?groupIds={group_id}&size=420x420&format=Png&isCircular=false"
     response = requests.get(url, proxies=get_random_proxy())
 
     if response.status_code != 200:
